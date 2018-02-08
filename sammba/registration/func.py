@@ -175,12 +175,10 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
     out_clip_level = clip_level(in_file=func_filename)
     out_calc_threshold = calc(
         in_file_a=func_filename,
-        expr='ispositive(a-{0})'.format(out_clip_level.outputs.clip_val),
+        in_file_b=func_filename,
+        expr='ispositive(a-{0}) * b'.format(out_clip_level.outputs.clip_val),
         outputtype='NIFTI_GZ')
     thresholded_filename = out_calc_threshold.outputs.out_file
-
-    print(thresholded_filename)
-    stop
 
     out_volreg = volreg(  # XXX dfile not saved
         in_file=thresholded_filename,
@@ -211,6 +209,8 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
             filename_to_copy=out_volreg.outputs.out_file,
             filename_to_change=out_allineate.outputs.out_file)
 
+    print(allineated_filename)
+    stop
 
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=allineated_filename, args='-mean',
