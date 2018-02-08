@@ -332,6 +332,8 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
         np.savetxt(mat_filename, [out_warp.runtime.stdout], fmt='%s')
         output_files.append(mat_filename)
 
+    print(out_warp.runtime.stdout)
+    stop
     transform_filename = fname_presuffix(registered_anat_filename,
                                          suffix='_anat_to_func.aff12.1D',
                                          use_ext=False)
