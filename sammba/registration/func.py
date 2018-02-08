@@ -2,7 +2,7 @@ import os
 import numpy as np
 import nibabel
 from sammba.externals.nipype.caching import Memory
-from sammba.externals.nipype.interfaces import afni, fsl
+from sammba.externals.nipype.interfaces import afni
 from sammba.externals.nipype.utils.filemanip import fname_presuffix
 from sammba.interfaces import segmentation
 from .utils import fix_obliquity, copy_geometry
@@ -112,7 +112,6 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
         tstat = memory.cache(afni.TStat)
         compute_mask = memory.cache(ComputeMask)
         calc = memory.cache(afni.Calc)
-        copy_geom = memory.cache(fsl.CopyGeom)
         allineate = memory.cache(afni.Allineate)
         allineate2 = memory.cache(afni.Allineate)
         unifize = memory.cache(afni.Unifize)
@@ -137,7 +136,6 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
         tstat = afni.TStat(terminal_output=terminal_output).run
         compute_mask = ComputeMask(terminal_output=terminal_output).run
         calc = afni.Calc(terminal_output=terminal_output).run
-        copy_geom = fsl.CopyGeom(terminal_output=terminal_output).run
         unifize = afni.Unifize(terminal_output=terminal_output).run
         catmatvec = afni.CatMatvec().run
         warp = afni.Warp().run
@@ -201,17 +199,9 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
     # 3dAllineate removes the obliquity. This is not a good way to readd it as
     # removes motion correction info in the header if it were an AFNI file...as
     # it happens it's NIfTI which does not store that so irrelevant!
-    if False:
-        out_copy_geom = copy_geom(dest_file=out_allineate.outputs.out_file,
-                                  in_file=out_volreg.outputs.out_file)
-        allineated_filename = out_copy_geom.outputs.out_file
-    else:
-        allineated_filename = copy_geometry(
-            filename_to_copy=out_volreg.outputs.out_file,
-            filename_to_change=out_allineate.outputs.out_file)
-
-    print(allineated_filename)
-    stop
+    allineated_filename = copy_geometry(
+        filename_to_copy=out_volreg.outputs.out_file,
+        filename_to_change=out_allineate.outputs.out_file)
 
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=allineated_filename, args='-mean',
