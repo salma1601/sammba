@@ -209,9 +209,6 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
             filename_to_copy=out_volreg.outputs.out_file,
             filename_to_change=out_allineate.outputs.out_file)
 
-    print(allineated_filename)
-    stop
-
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=allineated_filename, args='-mean',
                       outputtype='NIFTI_GZ', environ=environ)
