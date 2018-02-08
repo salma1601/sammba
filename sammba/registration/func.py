@@ -180,6 +180,11 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
         outputtype='NIFTI_GZ')
     thresholded_filename = out_calc_threshold.outputs.out_file
 
+
+    print(thresholded_filename)
+    print(out_clip_level.outputs.clip_val)
+    stop
+
     out_volreg = volreg(  # XXX dfile not saved
         in_file=thresholded_filename,
         outputtype='NIFTI_GZ',
@@ -197,6 +202,7 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
                                                        suffix='Av'),
                               environ=environ)
 
+
     # 3dAllineate removes the obliquity. This is not a good way to readd it as
     # removes motion correction info in the header if it were an AFNI file...as
     # it happens it's NIfTI which does not store that so irrelevant!
@@ -209,8 +215,6 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
             filename_to_copy=out_volreg.outputs.out_file,
             filename_to_change=out_allineate.outputs.out_file)
 
-    print(allineated_filename)
-    stop
 
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=allineated_filename, args='-mean',
