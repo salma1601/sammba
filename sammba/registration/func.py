@@ -209,6 +209,9 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
             filename_to_copy=out_volreg.outputs.out_file,
             filename_to_change=out_allineate.outputs.out_file)
 
+    print(allineated_filename)
+    stop
+
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=allineated_filename, args='-mean',
                       outputtype='NIFTI_GZ', environ=environ)
@@ -332,8 +335,6 @@ def coregister_fmri_session(session_data, t_r, write_dir, brain_volume,
         np.savetxt(mat_filename, [out_warp.runtime.stdout], fmt='%s')
         output_files.append(mat_filename)
 
-    print(out_warp.runtime.stdout)
-    stop
     transform_filename = fname_presuffix(registered_anat_filename,
                                          suffix='_anat_to_func.aff12.1D',
                                          use_ext=False)
