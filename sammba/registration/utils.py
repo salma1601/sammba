@@ -131,6 +131,39 @@ def fix_obliquity(to_fix_filename, reference_filename, caching=False,
     return out_copy.outputs.out_file
 
 
+def set_header_slice_end(in_file, slices_axis=2, out_file=None):
+
+nifti_tool -mod_hdr1 -mod_field slice_end 31 -infiles /tmp/perfFAIREPI_n0.nii -prefix /tmp/perfFAIREPI_n0_sl_end.nii
+
+nifti_tool -disp_hdr1 -field slice_end -infiles
+nifti_tool-mod_hdr  -mod_field slice_end 11 -infiles
+
+    img = nibabel.load(in_file)
+    header = img.header
+    if not isinstance(header['slice_end'], np.ndarray):
+        raise ValueError('Expected slice_end numpy.ndarray, got {}'.format(
+            type(header['slice_end'])))
+    if not len(header['slice_end']) > 0:
+        raise ValueError('Expected slice_end of length 1, got {}'.format(
+            len(header['slice_end'])))
+
+    slice_end = header['slice_end'][0]
+    if slice_end == 0:
+        slice_end = img.shape()[slices_axis] - 1
+        new_header = header.copy()
+        new_header['slice_end'][0] = slice_end
+        new_header['slice_start'][0] = 0
+        new_img = nibabel.Nifti1Image(img.data(), img.affine,
+                                      header=new_header)
+        if out_file is None:
+            out_file = fname_presuffix(in_file, suffix='slice_fixed')
+        new_img.to_filename(new_img)
+    else:
+        out_file = in_file
+
+    return out_file
+
+
 def _check_same_obliquity(img_filename1, img_filename2):
     headers_values = []
     for img_filename in [img_filename1, img_filename2]:
