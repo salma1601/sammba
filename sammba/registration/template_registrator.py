@@ -53,7 +53,8 @@ class TemplateRegistrator(BaseRegistrator):
                  template_brain_mask=None, brain_volume=None,
                  dilated_template_mask=None, output_dir=None, caching=False,
                  verbose=True, use_rats_tool=True,
-                 mask_clipping_fraction=.2, convergence=0.005):
+                 mask_clipping_fraction=.2, convergence=0.005,
+                 registration_kind='nonlinear'):
         self.template = template
         self.template_brain_mask = template_brain_mask
         self.dilated_template_mask = dilated_template_mask
@@ -64,6 +65,7 @@ class TemplateRegistrator(BaseRegistrator):
         self.verbose = verbose
         self.mask_clipping_fraction = mask_clipping_fraction
         self.convergence = convergence
+        self.registration_kind = registration_kind
 
     def _check_inputs(self):
         if not os.path.isfile(self.template):
@@ -80,7 +82,7 @@ class TemplateRegistrator(BaseRegistrator):
                                  "".format(self.mask_clipping_fraction))
 
     def _check_anat_fitted(self):
-        if not hasattr(self, '_normalization_transform'):
+        if not hasattr(self, '_normalization_transforms'):
             raise ValueError('It seems that %s has not been fitted. '
                              'You must call fit_anat() before calling '
                              'transform_anat() or fit_modality().'
@@ -118,32 +120,41 @@ class TemplateRegistrator(BaseRegistrator):
             self.template_brain_, write_dir=self.output_dir,
             dilated_head_mask_filename=self.dilated_template_mask,
             caching=self.caching, verbose=self.verbose, maxlev=None,
-            convergence=self.convergence)  # XXX maxlev
+            convergence=self.convergence,
+            registration_kind=self.registration_kind)
 
         self.registered_anat = normalization.registered
-        self._normalization_pretransform = normalization.pretransform
-        self._normalization_transform = normalization.transform
+        if self.registration_kind == 'nonlinear':
+            self._normalization_transforms = [normalization.transform,
+                                              normalization.pretransform]
+        else:
+            self._normalization_transforms = [normalization.pretransform]
+
         return self
 
-    def transform_anat(self, in_file, interpolation='wsinc5'):
+    def transform_anat_like(self, in_file, interpolation='wsinc5'):
         """ Transforms the given in_file from anatomical space to template
             space.
         """
         self._check_anat_fitted()
-        transformed_file = _apply_transforms(in_file, self.anat_,
-                                             self.output_dir,
-                                             [self._normalization_transform,
-                                              self._normalization_pretransform],
-                                             interpolation=interpolation,
-                                             caching=self.caching,
-                                             verbose=self.verbose)
+
+        transformed_file = _apply_transforms(
+            in_file,
+            self.anat_,
+            self.output_dir,
+            self._normalization_transforms,
+            transforms_kind=self.registration_kind,
+            interpolation=interpolation,
+            caching=self.caching,
+            verbose=self.verbose)
         return transformed_file
 
-    def fit_transform_anat(self, anat_file, apply_to_file, **fit_params):
+    def fit_transform_anat_like(self, anat_file, apply_to_file, **fit_params):
         """ Estimates registration from anatomical space to template space
             then transforms the given file.
         """
-        return self.fit(anat_file, **fit_params).transform(apply_to_file)
+        return self.fit(anat_file, **fit_params).transform_anat_like(
+            apply_to_file)
 
     def _check_modality_fitted(self, modality):
         coreg_transform = '_{}_to_anat_transform'.format(modality)
@@ -230,9 +241,7 @@ class TemplateRegistrator(BaseRegistrator):
 
             self.registered_func_ = _apply_transforms(
                 self.undistorted_func, self.template, self.output_dir,
-                [self._normalization_transform,
-                 self._normalization_pretransform,
-                 self._func_to_anat_transform],
+                self._normalization_transforms + [self._func_to_anat_transform],
                 voxel_size=voxel_size, caching=self.caching)
         elif modality == 'perf':
             self.perf_brain_ = brain_file
@@ -250,15 +259,13 @@ class TemplateRegistrator(BaseRegistrator):
 
             self.registered_perf_ = _apply_transforms(
                 self.undistorted_perf, self.template, self.output_dir,
-                [self._normalization_transform,
-                 self._normalization_pretransform,
-                 self._perf_to_anat_transform],
+                self._normalization_transforms + [self._perf_to_anat_transform],
                 voxel_size=voxel_size, caching=self.caching)
 
         return self
 
-    def transform_modality(self, in_file, modality, interpolation='wsinc5',
-                           voxel_size=None):
+    def transform_modality_like(self, in_file, modality,
+                                interpolation='wsinc5', voxel_size=None):
         """Transforms the given file from the space of the given modality to
             the template space then .
         """
@@ -274,24 +281,24 @@ class TemplateRegistrator(BaseRegistrator):
                                                 caching=self.caching)
         normalized_file = _apply_transforms(
             undistorted_file, self.template, self.output_dir,
-            [self._normalization_transform, self._normalization_pretransform,
-             coreg_transform_file],
+            self._normalization_transforms + [coreg_transform_file],
             voxel_size=voxel_size, caching=self.caching)
         return normalized_file
 
-    def fit_transform_modality(self, modality_file, modality, apply_to_file,
-                               interpolation='wsinc5',
-                               voxel_size=None, **fit_params):
+    def fit_transform_modality_like(self, modality_file, modality,
+                                    apply_to_file,
+                                    interpolation='wsinc5',
+                                    voxel_size=None, **fit_params):
         """ Estimates registration from the space of the given modality to the
             template space then transforms the given file.
         """
         self._check_anat_fitted()
         return self.fit_modality(
-            modality_file, modality, **fit_params).transform_modaliy(
+            modality_file, modality, **fit_params).transform_modaliy_like(
             apply_to_file, interpolation=interpolation, voxel_size=voxel_size)
 
-    def inverse_transform_modality(self, in_file, modality,
-                                   interpolation='wsinc5'):
+    def inverse_transform_towards_modality(self, in_file, modality,
+                                           interpolation='wsinc5'):
         """ Trasnforms the given file from template space to modality space.
         """
         self._check_anat_fitted()
@@ -302,9 +309,8 @@ class TemplateRegistrator(BaseRegistrator):
 
         inverted_file = _apply_transforms(in_file, modality_file,
                                           self.output_dir,
-                                          [self._normalization_transform,
-                                           self._normalization_pretransform,
-                                           coreg_transform_file],
+                                          self._normalization_transforms +\
+                                          [coreg_transform_file],
                                           inverse=True,
                                           interpolation=interpolation,
                                           caching=self.caching,

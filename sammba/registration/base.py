@@ -608,7 +608,7 @@ def _apply_perslice_warp(apply_to_file, warp_files,
         slicer = memory.cache(fsl.Slice)
         warp_apply = memory.cache(afni.NwarpApply)
         qwarp = memory.cache(afni.Qwarp)
-        merge = memory.cache(afni.Zcat)
+        merge = memory.cache(fsl.Merge)
         for step in [resample, slicer, warp_apply, qwarp, merge]:
             step.interface().set_default_terminal_output(terminal_output)
     else:
@@ -616,7 +616,7 @@ def _apply_perslice_warp(apply_to_file, warp_files,
         slicer = fsl.Slice(terminal_output=terminal_output).run
         warp_apply = afni.NwarpApply(terminal_output=terminal_output).run
         qwarp = afni.Qwarp(terminal_output=terminal_output).run
-        merge = afni.Zcat(terminal_output=terminal_output).run
+        merge = fsl.Merge(terminal_output=terminal_output).run
         environ['AFNI_DECONFLICT'] = 'OVERWRITE'
 
     apply_to_img = nibabel.load(apply_to_file)
@@ -633,19 +633,11 @@ def _apply_perslice_warp(apply_to_file, warp_files,
 
     # slice functional
     sliced_apply_to_files = []
-    for slice_n in range(n_slices):
-        out_slicer = slicer(in_file=apply_to_file,
-                            keep='{0} {0}'.format(slice_n),
-                            out_file=fname_presuffix(
-                                apply_to_file, newpath=per_slice_dir,
-                                suffix='_sl%d' % slice_n),
-                            environ=environ)
-        oblique_slice = fix_obliquity(out_slicer.outputs.out_file,
-                                      apply_to_file,
-                                      overwrite=overwrite, verbose=verbose,
-                                      caching=caching,
-                                      caching_dir=per_slice_dir)
-        sliced_apply_to_files.append(oblique_slice)
+    out_slicer = slicer(in_file=apply_to_file,
+                        out_base_name=fname_presuffix(apply_to_file,
+                                                      newpath=per_slice_dir,
+                                                      use_ext=False))
+    sliced_apply_to_files = out_slicer.outputs.out_files
 
     warped_apply_to_slices = []
     for (sliced_apply_to_file, warp_file) in zip(
@@ -782,6 +774,7 @@ def _transform_to_template(to_register_filename, template_filename, write_dir,
 def _apply_transforms(to_register_filename, target_filename,
                       write_dir,
                       transforms,
+                      transforms_kind='nonlinear',
                       interpolation='wsinc5',
                       transformed_filename=None,
                       voxel_size=None,
@@ -830,17 +823,19 @@ def _apply_transforms(to_register_filename, target_filename,
 
     if caching:
         memory = Memory(write_dir)
+        catmatvec = memory.cache(afni.CatMatvec)
+        allineate = memory.cache(afni.Allineate)
         warp_apply = memory.cache(afni.NwarpApply)
-        resample = memory.cache(afni.Resample)
-        warp_apply.interface().set_default_terminal_output(terminal_output)
-        resample.interface().set_default_terminal_output(terminal_output)
+        resample = memory.cache(afni.Resample)        
+        for step in [resample, allineate, warp_apply]:
+            step.interface().set_default_terminal_output(terminal_output)
     else:
         resample = afni.Resample(terminal_output=terminal_output).run
+        catmatvec = afni.CatMatvec().run
+        allineate = afni.Allineate(terminal_output=terminal_output).run
         warp_apply = afni.NwarpApply(terminal_output=terminal_output).run
         environ['AFNI_DECONFLICT'] = 'OVERWRITE'
 
-    current_dir = os.getcwd()
-    os.chdir(write_dir)
     if transformed_filename is None:
         target_basename = os.path.basename(target_filename)
         target_basename = os.path.splitext(target_basename)[0]
@@ -860,16 +855,31 @@ def _apply_transforms(to_register_filename, target_filename,
                                 environ=environ)
         resampled_template_filename = out_resample.outputs.out_file
 
-    warp = "'"
-    warp += " ".join(transforms)
-    warp += "'"
-    _ = warp_apply(in_file=to_register_filename,
-                   master=resampled_template_filename,
-                   warp=warp,
-                   inv_warp=inverse,
-                   interp=interpolation,
-                   out_file=transformed_filename,
-                   environ=environ)
-    os.chdir(current_dir)
+    if transforms_kind is not 'nonlinear':
+        affine_transform_filename = fname_presuffix(transformed_filename,
+                                                    suffix='.aff12.1D',
+                                                    useext=False)
+        _ = catmatvec(in_file=[(transform, 'ONELINE')
+                               for transform in transforms],
+                      oneline=True,
+                      out_file=affine_transform_filename,
+                      environ=environ)
+        _ = allineate(
+            in_file=to_register_filename,
+            master=resampled_template_filename,
+            in_matrix=affine_transform_filename,
+            final_interpolation=interpolation,
+            out_file=transformed_filename,
+            environ=environ)
+    else:
+        warp = "'"
+        warp += " ".join(transforms)
+        warp += "'"
+        _ = warp_apply(in_file=to_register_filename,
+                       master=resampled_template_filename,
+                       warp=warp,
+                       inv_warp=inverse,
+                       interp=interpolation,
+                       out_file=transformed_filename,
+                       environ=environ)
     return transformed_filename
-

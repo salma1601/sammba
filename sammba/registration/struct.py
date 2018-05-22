@@ -616,7 +616,8 @@ def anat_to_template(anat_filename, brain_filename,
                      dilated_head_mask_filename=None, convergence=.005,
                      maxlev=None,
                      caching=False, verbose=1, unifize_kwargs=None,
-                     brain_masking_unifize_kwargs=None):
+                     brain_masking_unifize_kwargs=None,
+                     registration_kind='nonlinear'):
     """ Registers an unbiased anatomical image to a given template.
 
     Parameters
@@ -703,9 +704,9 @@ def anat_to_template(anat_filename, brain_filename,
         threshold = memory.cache(fsl.Threshold)
         mask_tool = memory.cache(afni.MaskTool)
         allineate = memory.cache(afni.Allineate)
-        allineate2 = memory.cache(afni.Allineate)
+        allineate_apply = memory.cache(afni.Allineate)
         qwarp = memory.cache(afni.Qwarp)
-        for step in [allineate, allineate2, threshold, mask_tool, qwarp]:
+        for step in [allineate, allineate_apply, threshold, mask_tool, qwarp]:
             step.interface().set_default_terminal_output(terminal_output)
     else:
         clip_level = afni.ClipLevel().run
@@ -716,13 +717,14 @@ def anat_to_template(anat_filename, brain_filename,
         qwarp = afni.Qwarp(terminal_output=terminal_output).run
         environ['AFNI_DECONFLICT'] = 'OVERWRITE'
 
-    os.chdir(write_dir)
     intermediate_files = []
     if dilated_head_mask_filename is None:
         out_clip_level = clip_level(in_file=head_template_filename)
         out_threshold = threshold(
             in_file=head_template_filename,
-            thresh=out_clip_level.outputs.clip_val)
+            thresh=out_clip_level.outputs.clip_val,
+            out_file=fname_presuffix(head_template_filename,
+                                     suffix='_thresholded', newpath=write_dir))
         out_mask_tool = mask_tool(in_file=out_threshold.outputs.out_file,
                                   dilate_inputs='3',
                                   outputtype='NIFTI_GZ',
@@ -737,7 +739,8 @@ def anat_to_template(anat_filename, brain_filename,
     # well on whole head
     affine_transform_filename = fname_presuffix(brain_filename,
                                                 suffix='_aff.aff12.1D',
-                                                use_ext=False)
+                                                use_ext=False,
+                                                newpath=write_dir)
     out_allineate = allineate(
         in_file=brain_filename,
         reference=brain_template_filename,
@@ -749,7 +752,8 @@ def anat_to_template(anat_filename, brain_filename,
         two_pass=True,
         center_of_mass='',
         maxrot=90,
-        out_file=fname_presuffix(brain_filename, suffix='_aff'),
+        out_file=fname_presuffix(brain_filename, suffix='_aff',
+                                 newpath=write_dir),
         environ=environ,
         **verbosity_quietness_kwargs)
     intermediate_files.append(out_allineate.outputs.out_file)
@@ -759,7 +763,8 @@ def anat_to_template(anat_filename, brain_filename,
         in_file=anat_filename,
         master=head_template_filename,
         in_matrix=affine_transform_filename,
-        out_file=fname_presuffix(anat_filename, suffix='_affine_general'),
+        out_file=fname_presuffix(anat_filename, suffix='_affine_general',
+                                 newpath=write_dir),
         environ=environ,
         **verbosity_quietness_kwargs)
     allineated_filename = out_allineate_apply.outputs.out_file
@@ -769,41 +774,45 @@ def anat_to_template(anat_filename, brain_filename,
     # to template. Don't initiate straight from the original with an
     # iniwarp due to weird errors (like it creating an Allin it then can't
     # find)
-    if maxlev is not None:
-        out_qwarp = qwarp(
-            in_file=allineated_filename,
-            base_file=head_template_filename,
-            weight=dilated_head_mask_filename,
-            nmi=True,
-            noneg=True,
-            blur=[0],
-            maxlev=maxlev,
-            out_file=fname_presuffix(allineated_filename,
-                                     suffix='_warped'),
-            environ=environ,
-            **verbosity_quietness_kwargs)
+    if registration_kind != 'nonlinear':
+        registered = allineated_filename
+        warp_transform = None
     else:
-        out_qwarp = qwarp(
-            in_file=allineated_filename,
-            base_file=head_template_filename,
-            weight=dilated_head_mask_filename,
-            nmi=True,
-            noneg=True,
-            blur=[0],
-            out_file=fname_presuffix(allineated_filename,
-                                     suffix='_warped'),
-            environ=environ,
-            **verbosity_quietness_kwargs)
+        intermediate_files.extend(allineated_filename)
+        if maxlev is not None:
+            out_qwarp = qwarp(
+                in_file=allineated_filename,
+                base_file=head_template_filename,
+                weight=dilated_head_mask_filename,
+                nmi=True,
+                noneg=True,
+                blur=[0],
+                maxlev=maxlev,
+                out_file=fname_presuffix(allineated_filename, suffix='_warped'),
+                environ=environ,
+                **verbosity_quietness_kwargs)
+        else:
+            out_qwarp = qwarp(
+                in_file=allineated_filename,
+                base_file=head_template_filename,
+                weight=dilated_head_mask_filename,
+                nmi=True,
+                noneg=True,
+                blur=[0],
+                out_file=fname_presuffix(allineated_filename, suffix='_warped'),
+                environ=environ,
+                **verbosity_quietness_kwargs)
+        registered = out_qwarp.outputs.warped_source
+        warp_transform = out_qwarp.outputs.source_warp
 
-    os.chdir(current_dir)
     if not caching:
         for intermediate_file in intermediate_files:
             if os.path.isfile(intermediate_file):
                 os.remove(intermediate_file)
 
-    return Bunch(registered=out_qwarp.outputs.warped_source,
-                 transforms=out_qwarp.outputs.source_warp,
-                 pretransforms=affine_transform_filename)
+    return Bunch(registered=registered,
+                 transform=warp_transform,
+                 pretransform=affine_transform_filename)
 
 
 @deprecated("Function 'anats_to_template' has been replaced by "
@@ -811,6 +820,7 @@ def anat_to_template(anat_filename, brain_filename,
             "removed in future release. ")
 def anats_to_template(anat_filenames, head_template_filename, write_dir,
                       brain_volume, use_rats_tool=True,
+                      registration_kind='nonlinear',
                       brain_template_filename=None,
                       dilated_head_mask_filename=None, convergence=.005,
                       maxlev=None,
@@ -836,6 +846,9 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
     use_rats_tool : bool, optional
         If True, brain mask is computed using RATS Mathematical Morphology.
         Otherwise, a histogram-based brain segmentation is used.
+
+    registration_kind : one of {'rigid', 'affine', 'nonlinear'}, optional
+        The allowed transform kind.
 
     brain_template_filename : str, optional
         Path to a brain template. Note that this must coincide with the brain
@@ -891,6 +904,11 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
     and has to be cited. For more information, see
     `RATS <http://www.iibi.uiowa.edu/content/rats-overview/>`_
     """
+    registration_kinds = ['rigid', 'affine', 'nonlinear']
+    if registration_kind not in registration_kinds:
+        raise ValueError(
+            'Registration kind must be one of {0}, you entered {1}'.format(
+                registration_kinds, registration_kind))
     environ = {}
     if verbose:
         terminal_output = 'stream'
@@ -994,6 +1012,11 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
                               **unifize_kwargs)
         unbiased_anat_filenames.append(out_unifize.outputs.out_file)
 
+    if registration_kind == 'rigid':
+        warp_type = 'shift_rotate'
+    else:
+        warp_type = 'affine_general'
+
     affine_transforms = []
     allineated_filenames = []
     for (unbiased_anat_filename,
@@ -1023,6 +1046,7 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
             two_pass=True,
             center_of_mass='',
             maxrot=90,
+            warp_type=warp_type,
             out_file=fname_presuffix(masked_anat_filename, suffix='_aff'),
             environ=environ,
             **verbosity_quietness_kwargs)
@@ -1034,7 +1058,7 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
             master=head_template_filename,
             in_matrix=affine_transform_filename,
             out_file=fname_presuffix(unbiased_anat_filename,
-                                     suffix='_affine_general'),
+                                     suffix='_' + warp_type),
             environ=environ,
             **verbosity_quietness_kwargs)
         allineated_filenames.append(out_allineate2.outputs.out_file)
@@ -1042,44 +1066,48 @@ def anats_to_template(anat_filenames, head_template_filename, write_dir,
                                    masked_anat_filename,
                                    out_allineate.outputs.out_file])
 
-    intermediate_files.extend(allineated_filenames)
-    warp_transforms = []
-    registered = []
-    for allineated_filename in allineated_filenames:
-        # Non-linear registration of affine pre-registered whole head image
-        # to template. Don't initiate straight from the original with an
-        # iniwarp due to weird errors (like it creating an Allin it then can't
-        # find)
-        # XXX what is the need to the iwarp ?
-        if maxlev is not None:
-            out_qwarp = qwarp(
-                in_file=allineated_filename,
-                base_file=head_template_filename,
-                weight=dilated_head_mask_filename,
-                nmi=True,
-                noneg=True,
-                blur=[0],
-                maxlev=maxlev,
-                out_file=fname_presuffix(allineated_filename,
-                                         suffix='_warped'),
-                environ=environ,
-                **verbosity_quietness_kwargs)
-        else:
-            out_qwarp = qwarp(
-                in_file=allineated_filename,
-                base_file=head_template_filename,
-                weight=dilated_head_mask_filename,
-                nmi=True,
-                noneg=True,
-                blur=[0],
-                out_file=fname_presuffix(allineated_filename,
-                                         suffix='_warped'),
-                environ=environ,
-                **verbosity_quietness_kwargs)
-
-        registered.append(out_qwarp.outputs.warped_source)
-        warp_transforms.append(out_qwarp.outputs.source_warp)
-
+    if registration_kind != 'nonlinear':
+        registered = allineated_filenames
+        warp_transforms = [None]
+    else:
+        intermediate_files.extend(allineated_filenames)
+        warp_transforms = []
+        registered = []
+        for allineated_filename in allineated_filenames:
+            # Non-linear registration of affine pre-registered whole head image
+            # to template. Don't initiate straight from the original with an
+            # iniwarp due to weird errors (like it creating an Allin it then can't
+            # find)
+            # XXX what is the need to the iwarp ?
+            if maxlev is not None:
+                out_qwarp = qwarp(
+                    in_file=allineated_filename,
+                    base_file=head_template_filename,
+                    weight=dilated_head_mask_filename,
+                    nmi=True,
+                    noneg=True,
+                    blur=[0],
+                    maxlev=maxlev,
+                    out_file=fname_presuffix(allineated_filename,
+                                             suffix='_warped'),
+                    environ=environ,
+                    **verbosity_quietness_kwargs)
+            else:
+                out_qwarp = qwarp(
+                    in_file=allineated_filename,
+                    base_file=head_template_filename,
+                    weight=dilated_head_mask_filename,
+                    nmi=True,
+                    noneg=True,
+                    blur=[0],
+                    out_file=fname_presuffix(allineated_filename,
+                                             suffix='_warped'),
+                    environ=environ,
+                    **verbosity_quietness_kwargs)
+    
+            registered.append(out_qwarp.outputs.warped_source)
+            warp_transforms.append(out_qwarp.outputs.source_warp)
+    
     os.chdir(current_dir)
     if not caching:
         for intermediate_file in intermediate_files:
