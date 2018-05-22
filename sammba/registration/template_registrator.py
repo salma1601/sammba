@@ -242,6 +242,7 @@ class TemplateRegistrator(BaseRegistrator):
             self.registered_func_ = _apply_transforms(
                 self.undistorted_func, self.template, self.output_dir,
                 self._normalization_transforms + [self._func_to_anat_transform],
+                transforms_kind=self.registration_kind,
                 voxel_size=voxel_size, caching=self.caching)
         elif modality == 'perf':
             self.perf_brain_ = brain_file
@@ -260,6 +261,7 @@ class TemplateRegistrator(BaseRegistrator):
             self.registered_perf_ = _apply_transforms(
                 self.undistorted_perf, self.template, self.output_dir,
                 self._normalization_transforms + [self._perf_to_anat_transform],
+                transforms_kind=self.registration_kind,
                 voxel_size=voxel_size, caching=self.caching)
 
         return self
@@ -282,6 +284,7 @@ class TemplateRegistrator(BaseRegistrator):
         normalized_file = _apply_transforms(
             undistorted_file, self.template, self.output_dir,
             self._normalization_transforms + [coreg_transform_file],
+            transforms_kind=self.registration_kind,
             voxel_size=voxel_size, caching=self.caching)
         return normalized_file
 
@@ -311,6 +314,7 @@ class TemplateRegistrator(BaseRegistrator):
                                           self.output_dir,
                                           self._normalization_transforms +\
                                           [coreg_transform_file],
+                                          transforms_kind=self.registration_kind,
                                           inverse=True,
                                           interpolation=interpolation,
                                           caching=self.caching,

@@ -858,12 +858,20 @@ def _apply_transforms(to_register_filename, target_filename,
     if transforms_kind is not 'nonlinear':
         affine_transform_filename = fname_presuffix(transformed_filename,
                                                     suffix='.aff12.1D',
-                                                    useext=False)
-        _ = catmatvec(in_file=[(transform, 'ONELINE')
-                               for transform in transforms],
-                      oneline=True,
-                      out_file=affine_transform_filename,
-                      environ=environ)
+                                                    use_ext=False)
+        out_catmatvec = catmatvec(in_file=[(transform, 'ONELINE')
+                                           for transform in transforms],
+                                  oneline=True,
+                                  out_file=affine_transform_filename,
+                                  environ=environ)
+        if inverse:
+            affine_transform_filename = fname_presuffix(transformed_filename,
+                                                        suffix='_INV.aff12.1D',
+                                                        use_ext=False)
+            _ = catmatvec(in_file=[(out_catmatvec.outputs.out_file, 'I')],
+                          oneline=True,
+                          out_file=affine_transform_filename,
+                          environ=environ)
         _ = allineate(
             in_file=to_register_filename,
             master=resampled_template_filename,
