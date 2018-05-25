@@ -192,7 +192,7 @@ class AnatCoregistrator(BaseRegistrator):
 
         return self
 
-    def transform_modality(self, apply_to_file, modality):
+    def transform_modality_like(self, apply_to_file, modality):
         """ Applies modality coregristration to a file in the modality space.
         """
         self._check_anat_fitted()
@@ -207,10 +207,11 @@ class AnatCoregistrator(BaseRegistrator):
             write_dir=self.output_dir, caching=self.caching)
         return coreg_apply_to_file
 
-    def fit_transform_modality(self, in_file, apply_to_file,
-                               modality, slice_timing=None,
-                               t_r=None, prior_rigid_body_registration=None,
-                               **fit_params):
+    def fit_transform_modality_like(self, in_file, apply_to_file,
+                                    modality, slice_timing=None,
+                                    t_r=None,
+                                    prior_rigid_body_registration=None,
+                                    **fit_params):
         """#Fit to data, then transform it
         Prepare and perform coregistration.
 
