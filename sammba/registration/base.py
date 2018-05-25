@@ -41,6 +41,8 @@ def mask_report(mask_file, expected_volume):
 def compute_brain_mask(head_file, brain_volume, write_dir, bias_correct=True,
                        caching=False,
                        terminal_output='allatonce',
+                       lower_cutoff=.2, upper_cutoff=.85, closing=0,
+                       connected=True, dilation_size=(1, 1, 2), opening=5,
                        use_rats_tool=True, **unifize_kwargs):
     """
     Parameters
@@ -74,8 +76,15 @@ def compute_brain_mask(head_file, brain_volume, write_dir, bias_correct=True,
             raise ValueError('Can not locate Rats')
         else:
             ComputeMask = segmentation.MathMorphoMask
+            compute_mask_args = {}
     else:
         ComputeMask = segmentation.HistogramMask
+        compute_mask_args = {'lower_cutoff': lower_cutoff,
+                             'upper_cutoff': upper_cutoff,
+                             'closing': closing,
+                             'connected': connected,
+                             'dilation_size': dilation_size,
+                             'opening': opening}
 
     environ = {}
     if caching:
@@ -112,7 +121,8 @@ def compute_brain_mask(head_file, brain_volume, write_dir, bias_correct=True,
                                  suffix='_brain_mask',
                                  newpath=write_dir),
         volume_threshold=brain_volume,
-        intensity_threshold=int(out_clip_level.outputs.clip_val))
+        intensity_threshold=int(out_clip_level.outputs.clip_val),
+        **compute_mask_args)
 
     if not caching and bias_correct:
         os.remove(out_unifize.outputs.out_file)
