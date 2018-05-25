@@ -297,7 +297,7 @@ class TemplateRegistrator(BaseRegistrator):
         """
         self._check_anat_fitted()
         return self.fit_modality(
-            modality_file, modality, **fit_params).transform_modaliy_like(
+            modality_file, modality, **fit_params).transform_modality_like(
             apply_to_file, interpolation=interpolation, voxel_size=voxel_size)
 
     def inverse_transform_towards_modality(self, in_file, modality,
