@@ -11,13 +11,15 @@ from .utils import fix_obliquity, _get_afni_output_type, compute_n4_max_shrink
 
 def mask_report(mask_file, expected_volume):
     """ Outputs the mask
+
     Parameters
     ----------
-    mask_file
-    registrator : registrator object conatining brain_volume and
-        mask_clipping_fraction
+    mask_file : str
+        Path to the mask image
 
-        The object to use to compute the brain mask.
+    expected_volume : float
+        Expected volume in the mask.
+    
     """
 
     # TODO: symmetry, length and width
@@ -772,7 +774,6 @@ def _transform_to_template(to_register_filename, template_filename, write_dir,
     warp = "'"
     warp += " ".join(transforms)
     warp += "'"
-    print('********************************', nibabel.load(to_register_filename).affine)
     _ = warp_apply(in_file=to_register_filename,
                    master=resampled_template_filename,
                    warp=warp,
