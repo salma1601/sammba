@@ -25,7 +25,7 @@ print(func_filename)
 from sammba.registration import Coregistrator
 
 coregistrator = Coregistrator(output_dir='animal_1366', brain_volume=400,
-                              caching=True)
+                              use_rats_tool=False, caching=True)
 print(coregistrator)
 
 ##############################################################################
@@ -35,13 +35,14 @@ print(coregistrator)
 from sammba.segmentation import brain_extraction_report
 
 print(brain_extraction_report(anat_filename, brain_volume=400,
+                              use_rats_tool=False,
                               clipping_fractions=[.1, .2, .9, None]))
 
 ##############################################################################
 # Anatomical to functional registration
 # -------------------------------------
 coregistrator.fit_anat(anat_filename)
-coregistrator.fit_modality(func_filename, 'func',
+coregistrator.fit_modality(func_filename, 'func', t_r=1.,
                            prior_rigid_body_registration=True)
 
 ##############################################################################
