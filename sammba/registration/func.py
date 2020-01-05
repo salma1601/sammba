@@ -75,16 +75,17 @@ def _realign(func_filename, write_dir, caching=False,
     # 3dAllineate removes the obliquity. This is not a good way to readd it as
     # removes motion correction info in the header if it were an AFNI file...as
     # it happens it's NIfTI which does not store that so irrelevant!
+    out_copy_geom = copy_geom(dest_file=out_allineate.outputs.out_file,
+                              in_file=out_volreg.outputs.out_file)
+
     out_copy = copy(
-        in_file=out_allineate.outputs.out_file,
+        in_file=out_copy_geom.outputs.out_file,
         out_file=fname_presuffix(out_allineate.outputs.out_file,
                                  suffix='_oblique',
                                  newpath=write_dir),
         environ=environ)
-    out_copy_geom = copy_geom(dest_file=out_copy.outputs.out_file,
-                              in_file=out_volreg.outputs.out_file)
 
-    oblique_allineated_filename = out_copy_geom.outputs.out_file
+    oblique_allineated_filename = out_copy.outputs.out_file
 
     # Create a (hopefully) nice mean image for use in the registration
     out_tstat = tstat(in_file=oblique_allineated_filename, args='-mean',

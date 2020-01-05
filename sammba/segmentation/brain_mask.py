@@ -245,24 +245,36 @@ def compute_morpho_brain_mask(head_file, brain_volume, write_dir=None,
     # RATS sometimes slightly modifies the affine
     same_geom = _check_same_geometry(out_compute_mask.outputs.out_file,
                                      head_file)
+    mask_file = fname_presuffix(out_compute_mask.outputs.out_file,
+                                suffix='_oblique',
+                                newpath=write_dir)
     if not same_geom:
-        mask_file = fname_presuffix(out_compute_mask.outputs.out_file,
-                                    suffix='_rough_geom',
-                                    newpath=write_dir)
+        mask_file_nonoblique = fname_presuffix(
+            out_compute_mask.outputs.out_file,
+            suffix='_rough_geom',
+            newpath=write_dir)
         out_copy = copy(
             in_file=out_compute_mask.outputs.out_file,
+            out_file=mask_file_nonoblique,
+            environ=environ)
+        out_copy_geom = copy_geom(dest_file=out_copy.outputs.out_file,
+                                  in_file=head_file)
+        out_copy = copy(
+            in_file=out_copy_geom.outputs.out_file,
             out_file=mask_file,
             environ=environ)
-        _ = copy_geom(dest_file=out_copy.outputs.out_file,
-                      in_file=head_file)
     else:
-        mask_file = out_compute_mask.outputs.out_file            
+        out_copy = copy(
+                in_file=out_compute_mask.outputs.out_file,
+                out_file=mask_file,
+                environ=environ)
 
     # Remove intermediate output
     if not caching and unifize:
         os.remove(file_to_mask)
         if not same_geom:
             os.remove(out_compute_mask.outputs.out_file)
+            os.remove(mask_file_nonoblique)
 
     return mask_file
 

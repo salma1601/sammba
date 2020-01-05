@@ -60,12 +60,13 @@ def ants_n4(in_file, write_dir=None, caching=False,
         output_image=output_image)
 
     if copy_geometry:
+        out_copy_geom = copy_geom(dest_file=out_bias_correct.outputs.out_file,
+                                  in_file=in_file)
         out_copy = copy(
-            in_file=out_bias_correct.outputs.output_image,
+            in_file=out_copy_geom.outputs.output_image,
             out_file=unbiased_file,
             environ=environ)
-        out_copy_geom = copy_geom(dest_file=out_copy.outputs.out_file,
-                                  in_file=in_file)
+
     return unbiased_file
 
 
@@ -109,10 +110,11 @@ def afni_unifize(in_file, write_dir=None, out_file=None, caching=False,
                           **unifize_kwargs)
 
     if copy_geometry:
+        out_copy_geom = copy_geom(dest_file=out_unifize.outputs.out_file,
+                                  in_file=in_file)
         out_copy = copy(
-            in_file=out_unifize.outputs.out_file,
+            in_file=out_copy_geom.outputs.out_file,
             out_file=out_file,
             environ=environ)
-        out_copy_geom = copy_geom(dest_file=out_copy.outputs.out_file,
-                                  in_file=in_file)
+
     return out_file
