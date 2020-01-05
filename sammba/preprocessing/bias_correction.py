@@ -63,7 +63,7 @@ def ants_n4(in_file, write_dir=None, caching=False,
         out_copy_geom = copy_geom(dest_file=out_bias_correct.outputs.output_image,
                                   in_file=in_file)
         out_copy = copy(
-            in_file=out_copy_geom.outputs.output_image,
+            in_file=out_copy_geom.outputs.out_file,
             out_file=unbiased_file,
             environ=environ)
 
