@@ -81,7 +81,7 @@ def test_coregistrator():
     func_brain_mask = compute_histo_brain_mask(mean_func_file, 400,
                                                tst.tmpdir, opening=2)
     func_brain_mask_img = nibabel.load(func_brain_mask)
-    _check_same_fov(func_brain_mask_img, func_img)
+    np.testing.assert_array_equal(func_brain_mask_img.affine, func_img.affine)
     f1 = os.path.join(tst.tmpdir, 'func_volreg.nii.gz')
     f2 = os.path.join(tst.tmpdir, 'func_volreg_oblique.nii.gz')
     f3 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat.nii.gz')
