@@ -405,8 +405,8 @@ def _apply_mask(head_file, mask_file, write_dir=None,
         raise ValueError('Given mask is not made of 2 values: %s'
                          '. Cannot interpret as true or false' % values)
     try:
-        np.testing.assert_allclose(nibabel.load(mask_file).affine,
-                                   nibabel.load(head_file).affine)
+        np.testing.assert_array_equal(nibabel.load(mask_file).affine,
+                                      nibabel.load(head_file).affine)
     except AssertionError:
         raise ValueError('Given mask {0} and file {1} do not have the same '
                          'affine'.format(mask_file, head_file))
