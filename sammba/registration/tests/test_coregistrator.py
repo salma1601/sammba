@@ -81,7 +81,16 @@ def test_coregistrator():
     image.mean_img(func_img).to_filename(mean_func_file)
     func_brain_mask = compute_histo_brain_mask(mean_func_file, 400,
                                                tst.tmpdir, opening=2)
-    _check_same_fov(nibabel.load(func_brain_mask), func_img)    
+    func_brain_mask_img = nibabel.load(func_brain_mask)
+    _check_same_fov(func_brain_mask_img, func_img)
+    f1 = os.path.join(tst.tmpdir, 'func_volreg.nii.gz')
+    f2 = os.path.join(tst.tmpdir, 'func_volreg_oblique.nii.gz')
+    f3 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat.nii.gz')
+    f4 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat_n4.nii.gz')
+    _check_same_fov(nibabel.load(f2), func_img)
+    _check_same_fov(nibabel.load(f3), func_img)
+    _check_same_fov(nibabel.load(f4), func_img)
+
     registrator.fit_modality(func_file, 'func', slice_timing=False,
                              reorient_only=False,
                              brain_mask_file=func_brain_mask)
