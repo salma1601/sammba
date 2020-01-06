@@ -81,15 +81,15 @@ def test_coregistrator():
     func_brain_mask = compute_histo_brain_mask(mean_func_file, 400,
                                                tst.tmpdir, opening=2)
     func_brain_mask_img = nibabel.load(func_brain_mask)
-    np.testing.assert_array_equal(func_brain_mask_img.affine, func_img.affine)
+    np.testing.assert_allclose(func_brain_mask_img.affine, func_img.affine)
     f1 = os.path.join(tst.tmpdir, 'func_volreg.nii.gz')
     f2 = os.path.join(tst.tmpdir, 'func_volreg_oblique.nii.gz')
     f3 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat.nii.gz')
     f4 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat_n4.nii.gz')
-    np.testing.assert_array_equal(nibabel.load(f2).affine,
+    np.testing.assert_allclose(nibabel.load(f2).affine,
                                   func_brain_mask_img.affine)
-    np.testing.assert_array_equal(nibabel.load(f3).affine, func_brain_mask_img.affine)
-    np.testing.assert_array_equal(nibabel.load(f4).affine, func_brain_mask_img.affine)
+    np.testing.assert_allclose(nibabel.load(f3).affine, func_brain_mask_img.affine)
+    np.testing.assert_allclose(nibabel.load(f4).affine, func_brain_mask_img.affine)
     print('*' * 30)
     print(func_brain_mask)
     print('*' * 30)
