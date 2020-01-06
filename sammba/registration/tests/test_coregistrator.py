@@ -10,6 +10,7 @@ from nilearn._utils.niimg_conversions import _check_same_fov
 from sammba import testing_data
 from sammba.segmentation.brain_mask import compute_histo_brain_mask
 from sammba.registration.coregistrator import Coregistrator
+from nilearn._utils.niimg_conversions import _check_same_fov   # XXX
 
 
 @with_setup(tst.setup_tmpdata, tst.teardown_tmpdata)
@@ -80,7 +81,7 @@ def test_coregistrator():
     image.mean_img(func_img).to_filename(mean_func_file)
     func_brain_mask = compute_histo_brain_mask(mean_func_file, 400,
                                                tst.tmpdir, opening=2)
-    
+    _check_same_fov(nibabel.load(func_brain_mask), func_img)    
     registrator.fit_modality(func_file, 'func', slice_timing=False,
                              reorient_only=False,
                              brain_mask_file=func_brain_mask)
