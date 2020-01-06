@@ -87,9 +87,10 @@ def test_coregistrator():
     f2 = os.path.join(tst.tmpdir, 'func_volreg_oblique.nii.gz')
     f3 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat.nii.gz')
     f4 = os.path.join(tst.tmpdir, 'func_volreg_oblique_tstat_n4.nii.gz')
-    _check_same_fov(nibabel.load(f2), func_img)
-    _check_same_fov(nibabel.load(f3), func_img)
-    _check_same_fov(nibabel.load(f4), func_img)
+    _check_same_fov(nibabel.load(f2), func_brain_mask_img)
+    _check_same_fov(nibabel.load(f3), func_brain_mask_img)
+    _check_same_fov(nibabel.load(f4), func_brain_mask_img)
+    print(func_brain_mask)
 
     registrator.fit_modality(func_file, 'func', slice_timing=False,
                              reorient_only=False,
